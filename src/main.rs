@@ -225,8 +225,8 @@ fn main() -> ExitCode {
             let service_command = sub_matches.subcommand().unwrap_or(("push", sub_matches));
             match service_command {
                 ("deployed", sub_matches) => {
-                    let id = sub_matches.get_one::<String>("id");
-                    println!("Applying {id:?}");
+                    let args = service::deployed_parse(sub_matches);
+                    println!("Deployed service {} to environment {}", args.subject_id, args.env_id);
                 }
                 ("pop", sub_matches) => {
                     let stash = sub_matches.get_one::<String>("STASH");

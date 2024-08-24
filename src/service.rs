@@ -1,12 +1,14 @@
 use clap::{arg, Arg, ArgMatches};
 
 // ========= Service Deployed =========
-struct ServiceDeployedArgs {
-    subject_id: String,
-    env_id: String,
-    env_name: Option<String>,
-    env_source: Option<String>,
-    artifact: Option<String>,
+pub struct ServiceDeployedArgs {
+    pub id: String,
+    pub source: String,
+    pub subject_id: String,
+    pub env_id: String,
+    pub env_name: Option<String>,
+    pub env_source: Option<String>,
+    pub artifact: Option<String>,
 }
 pub fn deployed_args() -> [Arg; 5] {
     [
@@ -18,11 +20,21 @@ pub fn deployed_args() -> [Arg; 5] {
     ]
 }
 
-pub fn deployed_map(matches: &ArgMatches) {
-    let subid = matches.value_of("subid").unwrap();
-    let envid = matches.value_of("envid").unwrap();
-    let envname = matches.value_of("envname").unwrap_or("default");
-    let envsource = matches.value_of("envsource").unwrap_or("default");
-    let artifact = matches.value_of("artifact").unwrap();
-    println!("Deployed service {} to environment {} with artifact {}", subid, envid, artifact);
+pub fn deployed_parse(matches: &ArgMatches) -> ServiceDeployedArgs {
+    let id = matches.get_one::<String>("id").unwrap().into();
+    let source = matches.get_one::<String>("source").unwrap().into();
+    let subject_id = matches.get_one::<String>("subid").unwrap().into();
+    let env_id = matches.get_one::<String>("envid").unwrap().into();
+    let env_name = matches.try_get_one::<String>("envname").unwrap().cloned();
+    let env_source = matches.try_get_one("envsource").unwrap().cloned();
+    let artifact = matches.try_get_one("artifact").unwrap().cloned();
+    ServiceDeployedArgs {
+        id,
+        source,
+        subject_id,
+        env_id,
+        env_name,
+        env_source,
+        artifact
+    }
 }
