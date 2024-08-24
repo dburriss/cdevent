@@ -4,7 +4,9 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use clap::{arg, Command, builder::styling, Arg};
-
+// =============================
+// ========= Cli Setup =========
+// =============================
 fn cli() -> Command {
     const STYLES: styling::Styles = styling::Styles::styled()
         .header(styling::AnsiColor::Green.on_default().bold())
@@ -170,6 +172,9 @@ fn push_args() -> Vec<clap::Arg> {
     ]
 }
 
+// ========================
+// ========= Main =========
+// ========================
 fn main() -> ExitCode {
     let matches = cli().get_matches();
 
