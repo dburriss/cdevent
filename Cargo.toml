@@ -10,3 +10,4 @@ cdevents-sdk = { git = "https://github.com/cdevents/sdk-rust", branch = "main" }
 clap = { version = "4.5.7", features = ["color"] }
 config = "0.14.0"
 reqwest = "0.12.5"
+cloudevents-sdk = "0.7.0"

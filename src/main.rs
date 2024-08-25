@@ -5,6 +5,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use cdevents_sdk::CDEvent;
 use clap::{arg, Command, builder::styling, Arg};
+use cloudevents::AttributesReader;
+
 // =============================
 // ========= Cli Setup =========
 // =============================
@@ -227,8 +229,9 @@ fn main() -> ExitCode {
             match service_command {
                 ("deployed", sub_matches) => {
                     let args = service::deployed_parse(sub_matches);
-                    let cd_event: CDEvent = CDEvent::from(args.clone());
-                    println!("Event {}: Deployed service {} to environment {}", &cd_event.id(), args.subject_id, args.env_id);
+                    // let cd_event: CDEvent = CDEvent::from(args.clone());
+                    let cloud_event = service::to_cloud_event(&args);
+                    println!("Event {}: Deployed service {} to environment {}", &cloud_event.id(), args.subject_id, args.env_id);
                 }
                 ("pop", sub_matches) => {
                     let stash = sub_matches.get_one::<String>("STASH");
