@@ -1,11 +1,12 @@
 mod service;
 
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::ExitCode;
-use cdevents_sdk::CDEvent;
 use clap::{arg, Command, builder::styling, Arg};
 use cloudevents::AttributesReader;
+use cloudevents::event::ExtensionValue;
 
 // =============================
 // ========= Cli Setup =========
@@ -231,7 +232,8 @@ fn main() -> ExitCode {
                     let args = service::deployed_parse(sub_matches);
                     // let cd_event: CDEvent = CDEvent::from(args.clone());
                     let cloud_event = service::to_cloud_event(&args);
-                    println!("Event {}: Deployed service {} to environment {}", &cloud_event.id(), args.subject_id, args.env_id);
+                    let custom_data = get_custom_data(&cloud_event);
+                    println!("Event {}: Deployed service {} to environment {} with custom data count {}", &cloud_event.id(), &cloud_event.subject().unwrap(), args.env_id, custom_data.iter().count());
                 }
                 ("pop", sub_matches) => {
                     let stash = sub_matches.get_one::<String>("STASH");
@@ -260,4 +262,16 @@ fn main() -> ExitCode {
     // Continued program logic goes here..
     // return success code
     ExitCode::SUCCESS
+}
+
+fn get_custom_data(event: &cloudevents::Event) -> Option<HashMap<String, String>> {
+    event.extension("customData").and_then(|value| {
+        if let ExtensionValue::String(json) = value {
+            let custom_data: HashMap<String, String> = serde_json::from_str(json.as_str()).unwrap();
+            Some(custom_data)
+        } else {
+            println!("customData in event {}", value);
+            None
+        }
+    })
 }
