@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use clap::{arg, Command, builder::styling, Arg};
 use cloudevents::{AttributesReader, Data};
-use cloudevents::event::ExtensionValue;
 use log::debug;
 
 // =============================
@@ -233,8 +232,15 @@ fn main() -> ExitCode {
                     let args = service::deployed_parse(sub_matches);
                     // let cd_event: CDEvent = CDEvent::from(args.clone());
                     let cloud_event = service::to_cloud_event(&args);
-                    let custom_data = get_custom_data(&cloud_event).unwrap();
-                    println!("Event {}: Deployed service {} to environment {} with custom data count {}", &cloud_event.id(), &cloud_event.subject().unwrap(), args.env_id, custom_data.iter().count());
+                    let custom_data = get_custom_data(&cloud_event);
+                    match custom_data {
+                        Some(data) => {
+                            println!("Event {}: Deployed service {} to environment {} with custom data count {}", &cloud_event.id(), &cloud_event.subject().unwrap(), args.env_id, data.iter().count());
+                        }
+                        None => {
+                            println!("Event {}: Deployed service {} to environment {} with no custom data", &cloud_event.id(), &cloud_event.subject().unwrap(), args.env_id);
+                        }
+                    }
                 }
                 ("pop", sub_matches) => {
                     let stash = sub_matches.get_one::<String>("STASH");
@@ -270,19 +276,32 @@ fn get_custom_data(event: &cloudevents::Event) -> Option<HashMap<String, String>
     event.data().and_then(|data| {
         if let Data::Json(json) = data {
             println!("data in event {}", json);
-            // let custom_data: HashMap<String, String> = serde_json::from_str(json.as_str().unwrap()).unwrap();
-            Some(HashMap::<String,String>::new())
+            match json {
+                serde_json::Value::Object(map) => {
+                    // get "customData" if it exists
+                    match map.get("customData") {
+                        Some(custom_data) => {
+                            match custom_data {
+                                serde_json::Value::Object(custom_map) => {
+                                    let custom_data:HashMap<String,String> = custom_map.iter().map(|(k,v)| (k.clone(), v.as_str().unwrap().to_string())).collect();
+                                    Some(custom_data)
+                                }
+                                _ => {
+                                    println!("customData in event is not an object");
+                                    None
+                                }
+                            }
+                        }
+                        None => {
+                            println!("customData not found in event");
+                            None
+                        }
+                    }
+                }
+                _ => Some(HashMap::<String,String>::new())
+            }
         } else {
             println!("data in event {}", data);
-            None
-        }
-    });
-    event.extension("customData").and_then(|value| {
-        if let ExtensionValue::String(json) = value {
-            let custom_data: HashMap<String, String> = serde_json::from_str(json.as_str()).unwrap();
-            Some(custom_data)
-        } else {
-            println!("customData in event {}", value);
             None
         }
     })
