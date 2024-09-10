@@ -14,12 +14,12 @@ pub struct ServiceDeployedArgs {
     pub env_name: Option<String>,
     pub env_source: Option<String>,
     pub artifact: Option<String>,
-    pub custom_data: HashMap<String,String>
+    pub custom_data: Option<HashMap<String,String>>
 }
 
 impl From<ServiceDeployedArgs> for CDEvent {
     fn from(args: ServiceDeployedArgs) -> Self {
-        CDEvent::from(
+        let mut cd_event = CDEvent::from(
             Subject::from(service_deployed_0_1_1::Content{
                 artifact_id: args.artifact.unwrap().try_into().unwrap(),
                 environment: (service_deployed_0_1_1::ContentEnvironment{
@@ -31,8 +31,13 @@ impl From<ServiceDeployedArgs> for CDEvent {
                 .with_source(args.source.clone().try_into().unwrap())
         )
             .with_id(args.id.try_into().unwrap())
-            .with_source(args.source.try_into().unwrap())
-            .with_custom_data(to_value(args.custom_data).unwrap())
+            .with_source(args.source.try_into().unwrap());
+
+        if let Some(custom_data) = args.custom_data {
+            cd_event = cd_event.with_custom_data(to_value(custom_data).unwrap());
+        }
+
+        cd_event
     }
 }
 pub fn deployed_args() -> [Arg; 6] {
@@ -71,12 +76,9 @@ pub fn deployed_parse(matches: &ArgMatches) -> ServiceDeployedArgs {
     let env_name = matches.try_get_one::<String>("envname").unwrap().cloned();
     let env_source = matches.try_get_one("envsource").unwrap().cloned();
     let artifact = matches.try_get_one("artifact").unwrap().cloned();
-    let custom_data:HashMap<String,String> = matches.try_get_one::<Vec<(String,String)>>("custom")
-        .unwrap_or_default()
-        .into_iter().flatten()
-        .map(move |t| { let x = t.clone(); (x.0, x.1)})
-        .collect();
-    println!("Parsed custom data length {}", custom_data.len());
+    let custom_data:Option<HashMap<String,String>> = matches.try_get_one::<Vec<(String,String)>>("custom")
+        .unwrap()
+        .map(|c| c.into_iter().map(move |t| { let x = t.clone(); (x.0, x.1)}).collect());
     ServiceDeployedArgs {
         id,
         source,
