@@ -72,11 +72,11 @@ pub fn deployed_parse(matches: &ArgMatches) -> ServiceDeployedArgs {
     let env_source = matches.try_get_one("envsource").unwrap().cloned();
     let artifact = matches.try_get_one("artifact").unwrap().cloned();
     let custom_data:HashMap<String,String> = matches.try_get_one::<Vec<(String,String)>>("custom")
-        .unwrap()
+        .unwrap_or_default()
         .into_iter().flatten()
         .map(move |t| { let x = t.clone(); (x.0, x.1)})
         .collect();
-    println!("Parsed custom data length {} head {}", custom_data.len(), custom_data["key1"]);
+    println!("Parsed custom data length {}", custom_data.len());
     ServiceDeployedArgs {
         id,
         source,
