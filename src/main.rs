@@ -118,7 +118,8 @@ fn cli() -> Command {
                 .flatten_help(true)
                 .subcommand_required(true)
                 .subcommand(
-                    Command::new("deployed").args(default_args)
+                    Command::new("deployed")
+                        .args(default_args)
                         .args(service::deployed_args()))
                 .subcommand(Command::new("published").arg(arg!([STASH])))
                 .subcommand(Command::new("removed").arg(arg!([STASH])))
@@ -182,6 +183,8 @@ fn push_args() -> Vec<clap::Arg> {
 fn main() -> ExitCode {
     let matches = cli().get_matches();
 
+    let endpoint = matches.get_one::<String>("endpoint");
+
     match matches.subcommand() {
         Some(("clone", sub_matches)) => {
             println!(
@@ -232,15 +235,18 @@ fn main() -> ExitCode {
                     let args = service::deployed_parse(sub_matches);
                     // let cd_event: CDEvent = CDEvent::from(args.clone());
                     let cloud_event = service::to_cloud_event(&args);
-                    let custom_data = get_custom_data(&cloud_event);
-                    match custom_data {
-                        Some(data) => {
-                            println!("Event {}: Deployed service {} to environment {} with custom data count {}", &cloud_event.id(), &cloud_event.subject().unwrap(), args.env_id, data.iter().count());
-                        }
-                        None => {
-                            println!("Event {}: Deployed service {} to environment {} with no custom data", &cloud_event.id(), &cloud_event.subject().unwrap(), args.env_id);
-                        }
-                    }
+                    // let custom_data = get_custom_data(&cloud_event);
+                    // match custom_data {
+                    //     Some(data) => {
+                    //         println!("Event {}: Deployed service {} to environment {} with custom data count {}", &cloud_event.id(), &cloud_event.subject().unwrap(), args.env_id, data.iter().count());
+                    //     }
+                    //     None => {
+                    //         println!("Event {}: Deployed service {} to environment {} with no custom data", &cloud_event.id(), &cloud_event.subject().unwrap(), args.env_id);
+                    //     }
+                    // }
+                    let id = cloud_event.id();
+                    let sub = cloud_event.subject().unwrap();
+                    println!("Posting to endpoint: {endpoint:?}, id: {id:?}, subject: {sub:?}");
                 }
                 ("pop", sub_matches) => {
                     let stash = sub_matches.get_one::<String>("STASH");
