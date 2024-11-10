@@ -9,7 +9,9 @@ edition = "2021"
 cdevents-sdk = { git = "https://github.com/cdevents/sdk-rust", branch = "main" }
 clap = { version = "4.5.7", features = ["color"] }
 config = "0.14.0"
-reqwest = "0.12.5"
-cloudevents-sdk = "0.7.0"
+reqwest = { version = "0.11.27" }
+cloudevents-sdk = { version = "0.7.0", features = ["reqwest"] }
 serde_json = "1.0.127"
 log = "0.4.22"
+tokio-macros = "2.4.0"
+tokio = { version = "1.39.2", features = ["rt", "rt-multi-thread", "macros"] }

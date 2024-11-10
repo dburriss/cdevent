@@ -1,11 +1,13 @@
 mod service;
 
 use std::collections::HashMap;
+use std::error::Error;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use clap::{arg, Command, builder::styling, Arg};
 use cloudevents::{AttributesReader, Data};
+use cloudevents::binding::reqwest::RequestBuilderExt;
 use log::debug;
 
 // =============================
@@ -31,86 +33,86 @@ fn cli() -> Command {
         .color(clap::ColorChoice::Auto)
         .styles(STYLES)
         .args([
-            arg!(-e --endpoint <URL> "The endpoint to send events to"),
+            arg!(-e --endpoint <URL> "The endpoint to send events to").required(true),
             arg!(-q --quiet "Suppress output"),
             arg!(-c --config <FILE> "The configuration to use for the event"),
             arg!(-o --output <FILE> "The file to write the event to"),
             arg!(-f --format <FORMAT> "The format to write the event in"),
             arg!(-v --verbose "Increase verbosity"),
         ])
-        .subcommand(
-            Command::new("artifact")
-                .about("An artifact produced by a build")
-                .arg(arg!(<REMOTE> "The remote to clone"))
-                .arg_required_else_help(true),
-        )
-        .subcommand(
-            Command::new("branch")
-                .about("A branch in a software configuration management (SCM)repository")
-                .arg(arg!(base: [COMMIT]))
-                .arg(arg!(head: [COMMIT]))
-                .arg(arg!(path: [PATH]).last(true))
-                .arg(
-                    arg!(--color <WHEN>)
-                        .value_parser(["always", "auto", "never"])
-                        .num_args(0..=1)
-                        .require_equals(true)
-                        .default_value("auto")
-                        .default_missing_value("always"),
-                ),
-        )
-        .subcommand(
-            Command::new("build")
-                .about("A software build")
-                .arg(arg!(<REMOTE> "The remote to target"))
-                .arg_required_else_help(true),
-        )
-        .subcommand(
-            Command::new("change")
-                .about("A change proposed to the content of a repository")
-                .arg_required_else_help(true)
-                .arg(arg!(<PATH> ... "Stuff to add").value_parser(clap::value_parser!(PathBuf))),
-        )
-        .subcommand(
-            Command::new("environment")
-                .about("An environment where to run services")
-                .args_conflicts_with_subcommands(true)
-                .flatten_help(true)
-                .args(push_args())
-                .subcommand(Command::new("push").args(push_args()))
-                .subcommand(Command::new("pop").arg(arg!([STASH])))
-                .subcommand(Command::new("apply").arg(arg!([STASH]))),
-        )
-        .subcommand(
-            Command::new("incident")
-                .about("A problem in a production environment")
-                .args_conflicts_with_subcommands(true)
-                .flatten_help(true)
-                .args(push_args())
-                .subcommand(Command::new("push").args(push_args()))
-                .subcommand(Command::new("pop").arg(arg!([STASH])))
-                .subcommand(Command::new("apply").arg(arg!([STASH]))),
-        )
-        .subcommand(
-            Command::new("pipelinerun")
-                .about("An instance of a pipeline")
-                .args_conflicts_with_subcommands(true)
-                .flatten_help(true)
-                .args(push_args())
-                .subcommand(Command::new("push").args(push_args()))
-                .subcommand(Command::new("pop").arg(arg!([STASH])))
-                .subcommand(Command::new("apply").arg(arg!([STASH]))),
-        )
-        .subcommand(
-            Command::new("repository")
-                .about("A software configuration management (SCM)repository")
-                .args_conflicts_with_subcommands(true)
-                .flatten_help(true)
-                .args(push_args())
-                .subcommand(Command::new("push").args(push_args()))
-                .subcommand(Command::new("pop").arg(arg!([STASH])))
-                .subcommand(Command::new("apply").arg(arg!([STASH]))),
-        )
+        // .subcommand(
+        //     Command::new("artifact")
+        //         .about("An artifact produced by a build")
+        //         .arg(arg!(<REMOTE> "The remote to clone"))
+        //         .arg_required_else_help(true),
+        // )
+        // .subcommand(
+        //     Command::new("branch")
+        //         .about("A branch in a software configuration management (SCM)repository")
+        //         .arg(arg!(base: [COMMIT]))
+        //         .arg(arg!(head: [COMMIT]))
+        //         .arg(arg!(path: [PATH]).last(true))
+        //         .arg(
+        //             arg!(--color <WHEN>)
+        //                 .value_parser(["always", "auto", "never"])
+        //                 .num_args(0..=1)
+        //                 .require_equals(true)
+        //                 .default_value("auto")
+        //                 .default_missing_value("always"),
+        //         ),
+        // )
+        // .subcommand(
+        //     Command::new("build")
+        //         .about("A software build")
+        //         .arg(arg!(<REMOTE> "The remote to target"))
+        //         .arg_required_else_help(true),
+        // )
+        // .subcommand(
+        //     Command::new("change")
+        //         .about("A change proposed to the content of a repository")
+        //         .arg_required_else_help(true)
+        //         .arg(arg!(<PATH> ... "Stuff to add").value_parser(clap::value_parser!(PathBuf))),
+        // )
+        // .subcommand(
+        //     Command::new("environment")
+        //         .about("An environment where to run services")
+        //         .args_conflicts_with_subcommands(true)
+        //         .flatten_help(true)
+        //         .args(push_args())
+        //         .subcommand(Command::new("push").args(push_args()))
+        //         .subcommand(Command::new("pop").arg(arg!([STASH])))
+        //         .subcommand(Command::new("apply").arg(arg!([STASH]))),
+        // )
+        // .subcommand(
+        //     Command::new("incident")
+        //         .about("A problem in a production environment")
+        //         .args_conflicts_with_subcommands(true)
+        //         .flatten_help(true)
+        //         .args(push_args())
+        //         .subcommand(Command::new("push").args(push_args()))
+        //         .subcommand(Command::new("pop").arg(arg!([STASH])))
+        //         .subcommand(Command::new("apply").arg(arg!([STASH]))),
+        // )
+        // .subcommand(
+        //     Command::new("pipelinerun")
+        //         .about("An instance of a pipeline")
+        //         .args_conflicts_with_subcommands(true)
+        //         .flatten_help(true)
+        //         .args(push_args())
+        //         .subcommand(Command::new("push").args(push_args()))
+        //         .subcommand(Command::new("pop").arg(arg!([STASH])))
+        //         .subcommand(Command::new("apply").arg(arg!([STASH]))),
+        // )
+        // .subcommand(
+        //     Command::new("repository")
+        //         .about("A software configuration management (SCM)repository")
+        //         .args_conflicts_with_subcommands(true)
+        //         .flatten_help(true)
+        //         .args(push_args())
+        //         .subcommand(Command::new("push").args(push_args()))
+        //         .subcommand(Command::new("pop").arg(arg!([STASH])))
+        //         .subcommand(Command::new("apply").arg(arg!([STASH]))),
+        // )
         .subcommand(
             Command::new("service")
                 .about("A service running software in an environment")
@@ -121,51 +123,51 @@ fn cli() -> Command {
                     Command::new("deployed")
                         .args(default_args)
                         .args(service::deployed_args()))
-                .subcommand(Command::new("published").arg(arg!([STASH])))
-                .subcommand(Command::new("removed").arg(arg!([STASH])))
-                .subcommand(Command::new("rolledback").arg(arg!([STASH])))
-                .subcommand(Command::new("upgraded").args(push_args()))
+                // .subcommand(Command::new("published").arg(arg!([STASH])))
+                // .subcommand(Command::new("removed").arg(arg!([STASH])))
+                // .subcommand(Command::new("rolledback").arg(arg!([STASH])))
+                // .subcommand(Command::new("upgraded").args(push_args()))
         )
-        .subcommand(
-            Command::new("taskrun")
-                .about("An instance of a task")
-                .args_conflicts_with_subcommands(true)
-                .flatten_help(true)
-                .args(push_args())
-                .subcommand(Command::new("push").args(push_args()))
-                .subcommand(Command::new("pop").arg(arg!([STASH])))
-                .subcommand(Command::new("apply").arg(arg!([STASH]))),
-        )
-        .subcommand(
-            Command::new("testcaserun")
-                .about("The execution of a software testCase")
-                .args_conflicts_with_subcommands(true)
-                .flatten_help(true)
-                .args(push_args())
-                .subcommand(Command::new("push").args(push_args()))
-                .subcommand(Command::new("pop").arg(arg!([STASH])))
-                .subcommand(Command::new("apply").arg(arg!([STASH]))),
-        )
-        .subcommand(
-            Command::new("testoutput")
-                .about("The execution of a software testSuite")
-                .args_conflicts_with_subcommands(true)
-                .flatten_help(true)
-                .args(push_args())
-                .subcommand(Command::new("push").args(push_args()))
-                .subcommand(Command::new("pop").arg(arg!([STASH])))
-                .subcommand(Command::new("apply").arg(arg!([STASH]))),
-        )
-        .subcommand(
-            Command::new("testsuiterun")
-                .about("The execution of a software testSuite")
-                .args_conflicts_with_subcommands(true)
-                .flatten_help(true)
-                .args(push_args())
-                .subcommand(Command::new("push").args(push_args()))
-                .subcommand(Command::new("pop").arg(arg!([STASH])))
-                .subcommand(Command::new("apply").arg(arg!([STASH]))),
-        )
+        // .subcommand(
+        //     Command::new("taskrun")
+        //         .about("An instance of a task")
+        //         .args_conflicts_with_subcommands(true)
+        //         .flatten_help(true)
+        //         .args(push_args())
+        //         .subcommand(Command::new("push").args(push_args()))
+        //         .subcommand(Command::new("pop").arg(arg!([STASH])))
+        //         .subcommand(Command::new("apply").arg(arg!([STASH]))),
+        // )
+        // .subcommand(
+        //     Command::new("testcaserun")
+        //         .about("The execution of a software testCase")
+        //         .args_conflicts_with_subcommands(true)
+        //         .flatten_help(true)
+        //         .args(push_args())
+        //         .subcommand(Command::new("push").args(push_args()))
+        //         .subcommand(Command::new("pop").arg(arg!([STASH])))
+        //         .subcommand(Command::new("apply").arg(arg!([STASH]))),
+        // )
+        // .subcommand(
+        //     Command::new("testoutput")
+        //         .about("The execution of a software testSuite")
+        //         .args_conflicts_with_subcommands(true)
+        //         .flatten_help(true)
+        //         .args(push_args())
+        //         .subcommand(Command::new("push").args(push_args()))
+        //         .subcommand(Command::new("pop").arg(arg!([STASH])))
+        //         .subcommand(Command::new("apply").arg(arg!([STASH]))),
+        // )
+        // .subcommand(
+        //     Command::new("testsuiterun")
+        //         .about("The execution of a software testSuite")
+        //         .args_conflicts_with_subcommands(true)
+        //         .flatten_help(true)
+        //         .args(push_args())
+        //         .subcommand(Command::new("push").args(push_args()))
+        //         .subcommand(Command::new("pop").arg(arg!([STASH])))
+        //         .subcommand(Command::new("apply").arg(arg!([STASH]))),
+        // )
     // missing ticket - A ticket in a ticketing system
 
 }
@@ -180,56 +182,57 @@ fn push_args() -> Vec<clap::Arg> {
 // ========================
 // ========= Main =========
 // ========================
-fn main() -> ExitCode {
+#[tokio::main]
+async fn main() -> Result<ExitCode, ExitCode> {
     let matches = cli().get_matches();
 
     let endpoint = matches.get_one::<String>("endpoint");
 
     match matches.subcommand() {
-        Some(("clone", sub_matches)) => {
-            println!(
-                "Cloning {}",
-                sub_matches.get_one::<String>("REMOTE").expect("required")
-            );
-        }
-        Some(("diff", sub_matches)) => {
-            let color = sub_matches
-                .get_one::<String>("color")
-                .map(|s| s.as_str())
-                .expect("defaulted in clap");
-
-            let mut base = sub_matches.get_one::<String>("base").map(|s| s.as_str());
-            let mut head = sub_matches.get_one::<String>("head").map(|s| s.as_str());
-            let mut path = sub_matches.get_one::<String>("path").map(|s| s.as_str());
-            if path.is_none() {
-                path = head;
-                head = None;
-                if path.is_none() {
-                    path = base;
-                    base = None;
-                }
-            }
-            let base = base.unwrap_or("stage");
-            let head = head.unwrap_or("worktree");
-            let path = path.unwrap_or("");
-            println!("Diffing {base}..{head} {path} (color={color})");
-        }
-        Some(("push", sub_matches)) => {
-            println!(
-                "Pushing to {}",
-                sub_matches.get_one::<String>("REMOTE").expect("required")
-            );
-        }
-        Some(("add", sub_matches)) => {
-            let paths = sub_matches
-                .get_many::<PathBuf>("PATH")
-                .into_iter()
-                .flatten()
-                .collect::<Vec<_>>();
-            println!("Adding {paths:?}");
-        }
+        // Some(("clone", sub_matches)) => {
+        //     println!(
+        //         "Cloning {}",
+        //         sub_matches.get_one::<String>("REMOTE").expect("required")
+        //     );
+        // }
+        // Some(("diff", sub_matches)) => {
+        //     let color = sub_matches
+        //         .get_one::<String>("color")
+        //         .map(|s| s.as_str())
+        //         .expect("defaulted in clap");
+        //
+        //     let mut base = sub_matches.get_one::<String>("base").map(|s| s.as_str());
+        //     let mut head = sub_matches.get_one::<String>("head").map(|s| s.as_str());
+        //     let mut path = sub_matches.get_one::<String>("path").map(|s| s.as_str());
+        //     if path.is_none() {
+        //         path = head;
+        //         head = None;
+        //         if path.is_none() {
+        //             path = base;
+        //             base = None;
+        //         }
+        //     }
+        //     let base = base.unwrap_or("stage");
+        //     let head = head.unwrap_or("worktree");
+        //     let path = path.unwrap_or("");
+        //     println!("Diffing {base}..{head} {path} (color={color})");
+        // }
+        // Some(("push", sub_matches)) => {
+        //     println!(
+        //         "Pushing to {}",
+        //         sub_matches.get_one::<String>("REMOTE").expect("required")
+        //     );
+        // }
+        // Some(("add", sub_matches)) => {
+        //     let paths = sub_matches
+        //         .get_many::<PathBuf>("PATH")
+        //         .into_iter()
+        //         .flatten()
+        //         .collect::<Vec<_>>();
+        //     println!("Adding {paths:?}");
+        // }
         Some(("service", sub_matches)) => {
-            let service_command = sub_matches.subcommand().unwrap_or(("push", sub_matches));
+            let service_command = sub_matches.subcommand().unwrap_or(("help", sub_matches));
             match service_command {
                 ("deployed", sub_matches) => {
                     let args = service::deployed_parse(sub_matches);
@@ -247,17 +250,25 @@ fn main() -> ExitCode {
                     let id = cloud_event.id();
                     let sub = cloud_event.subject().unwrap();
                     println!("Posting to endpoint: {endpoint:?}, id: {id:?}, subject: {sub:?}");
+                    let response = reqwest::Client::new()
+                        .post(endpoint.unwrap())
+                        .event(cloud_event)
+                        .map_err(|e| ExitCode::FAILURE)?
+                        .header("Access-Control-Allow-Origin", "*")
+                        .send()
+                        .await
+                        .map_err(|e| ExitCode::FAILURE)?;
+
+                    println!("Response: {:?}", response);
                 }
-                ("pop", sub_matches) => {
-                    let stash = sub_matches.get_one::<String>("STASH");
-                    println!("Popping {stash:?}");
+                ("created", sub_matches) => {
+                    println!("Created");
                 }
-                ("push", sub_matches) => {
-                    let message = sub_matches.get_one::<String>("message");
-                    println!("Pushing {message:?}");
+                ("modified", sub_matches) => {
+                    println!("Modified");
                 }
-                (name, _) => {
-                    unreachable!("Unsupported subcommand `{name}`")
+                (name, sub) => {
+                    panic!("Unknown subcommand: {}", name);
                 }
             }
         }
@@ -274,7 +285,7 @@ fn main() -> ExitCode {
 
     // Continued program logic goes here..
     // return success code
-    ExitCode::SUCCESS
+    Ok(ExitCode::SUCCESS)
 }
 
 fn get_custom_data(event: &cloudevents::Event) -> Option<HashMap<String, String>> {
