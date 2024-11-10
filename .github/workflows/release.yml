@@ -42,7 +42,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: cli-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/your_cli_binary_name
+          path: target/${{ matrix.target }}/release/cdevent
           retention-days: 1
 
   release:
