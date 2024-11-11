@@ -4,66 +4,48 @@ on:
   push:
     tags:
       - 'v*'  # Run only on version tags like v1.0, v2.0, etc.
+env:
+  CRATE_NAME: cdevent
+  GITHUB_TOKEN: ${{ github.token }}
+  RUST_BACKTRACE: 1
 
 jobs:
-  build:
-    name: Build and Test
-    runs-on: ubuntu-latest
-
+  release:
+    name: Release - ${{ matrix.platform.release_for }}
     strategy:
       matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - aarch64-unknown-linux-gnu
-          - x86_64-apple-darwin
-          - x86_64-pc-windows-gnu
+        platform:
+          - os_name: Linux-x86_64
+            os: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
 
+        toolchain: [ 'stable' ]
+
+    # Steps to checkout, build, and release the CLI
+    runs-on: ${{ matrix.platform.os }}
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v3
-
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Build executable
+        uses: houseabsolute/actions-rust-cross@v0
         with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-
-      - name: Install Dependencies
-        run: rustup target add ${{ matrix.target }}
-
+          target: ${{ matrix.platform.target }}
+          args: "--locked --release"
+          strip: true
       - name: Run tests
-        run: cargo test --verbose
-
-      - name: Build binary
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: houseabsolute/actions-rust-cross@v0
         with:
-          name: cli-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/cdevent
-          retention-days: 1
-
-  release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref_type == 'tag'  # Only run on tags
-
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
+          command: "test"
+          target: ${{ matrix.platform.target }}
+          toolchain: ${{ matrix.toolchain }}
+          args: "--locked --release"
+        if: ${{ !matrix.platform.skip_tests }}
+      - name: Publish artifacts and release
+        uses: houseabsolute/actions-rust-release@v0
         with:
-          name: cli-${{ matrix.target }}
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            cli-x86_64-unknown-linux-gnu
-            cli-aarch64-unknown-linux-gnu
-            cli-x86_64-apple-darwin
-            cli-x86_64-pc-windows-gnu
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          executable-name: cdevent
+          target: ${{ matrix.platform.target }}
+          extra-files: 'README.md 
+          LICENSE'
+          changes-file: 'CHANGELOG.md'
+        if: matrix.toolchain == 'stable'
