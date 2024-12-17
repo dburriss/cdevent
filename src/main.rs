@@ -1,4 +1,5 @@
 mod service;
+mod args;
 
 use std::collections::HashMap;
 use std::error::Error;
@@ -8,7 +9,9 @@ use std::process::ExitCode;
 use clap::{arg, Command, builder::styling, Arg};
 use cloudevents::{AttributesReader, Data};
 use cloudevents::binding::reqwest::RequestBuilderExt;
+use config::Map;
 use log::debug;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
 // =============================
 // ========= Cli Setup =========
@@ -39,6 +42,7 @@ fn cli() -> Command {
             arg!(-o --output <FILE> "The file to write the event to"),
             arg!(-f --format <FORMAT> "The format to write the event in"),
             arg!(-v --verbose "Increase verbosity"),
+            arg!(-H --headers <HEADERS> ... "Headers to include in the request").value_parser(parse_headers),
         ])
         // .subcommand(
         //     Command::new("artifact")
@@ -187,7 +191,12 @@ async fn main() -> Result<ExitCode, ExitCode> {
     let matches = cli().get_matches();
 
     let endpoint = matches.get_one::<String>("endpoint");
-
+    let empty_header: Vec<(String,String)> = Vec::new();
+    let headers:HashMap<String,String> = matches.try_get_one::<Vec<(String,String)>>("headers")
+        .unwrap()
+        .map(|c| c.into_iter().map(move |t| { let x = t.clone(); (x.0, x.1)}).collect())
+        .unwrap_or(HashMap::new());
+    
     match matches.subcommand() {
         // Some(("clone", sub_matches)) => {
         //     println!(
@@ -250,11 +259,13 @@ async fn main() -> Result<ExitCode, ExitCode> {
                     let id = cloud_event.id();
                     let sub = cloud_event.subject().unwrap();
                     println!("Posting to endpoint: {endpoint:?}, id: {id:?}, subject: {sub:?}");
+                    let httpHeaders: HeaderMap = HeaderMap::from_iter(headers.iter().map(|(k,v)| (HeaderName::try_from(k.as_str()).unwrap(), HeaderValue::from_str(v.as_str()).unwrap())));
                     let response = reqwest::Client::new()
                         .post(endpoint.unwrap())
                         .event(cloud_event)
                         .map_err(|e| ExitCode::FAILURE)?
                         .header("Access-Control-Allow-Origin", "*")
+                        .headers(httpHeaders)
                         .send()
                         .await
                         .map_err(|e| ExitCode::FAILURE)?;
@@ -322,4 +333,9 @@ fn get_custom_data(event: &cloudevents::Event) -> Option<HashMap<String, String>
             None
         }
     })
+}
+
+fn parse_headers(s: &str) -> Result<Vec<(String, String)>, Box<dyn Error + Send + Sync + 'static>>
+{
+    args::parse_comma_delimited(s, "No headers provided")
 }

@@ -3,6 +3,7 @@ use std::error::Error;
 use cdevents_sdk::{CDEvent, Subject, service_deployed_0_1_1};
 use clap::{arg, Arg, ArgMatches};
 use serde_json::{to_value};
+use crate::args;
 
 // ========= Service Deployed =========
 #[derive(Clone)]
@@ -51,21 +52,9 @@ pub fn deployed_args() -> [Arg; 6] {
     ]
 }
 
-fn parse_key_val(s: &str) -> Result<(String, String), Box<dyn Error + Send + Sync + 'static>>
-{
-    let pos = s
-        .find('=')
-        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{s}`"))?;
-    Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
-}
-
 fn parse_custom_data(s: &str) -> Result<Vec<(String, String)>, Box<dyn Error + Send + Sync + 'static>>
 {
-    if s.is_empty() {
-        return Err("No custom data provided".into());
-    }
-    let r = s.split(',').map(|kv| parse_key_val(kv).unwrap()).collect();
-    Ok(r)
+    args::parse_comma_delimited(s, "No custom data provided")
 }
 
 pub fn deployed_parse(matches: &ArgMatches) -> ServiceDeployedArgs {
@@ -94,40 +83,4 @@ pub fn deployed_parse(matches: &ArgMatches) -> ServiceDeployedArgs {
 pub fn to_cloud_event(args: &ServiceDeployedArgs) -> cloudevents::Event {
     let cd_event:CDEvent = CDEvent::from(args.clone());
     cd_event.clone().try_into().unwrap()
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_key_val_when_empty_string_then_error(){
-        let result: Result<(String, String), Box<dyn Error+Send+Sync>> = parse_key_val("");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn parse_key_val_when_equal_sign_then_key_value(){
-        let result: Result<(String, String), Box<dyn Error+Send+Sync>> = parse_key_val("x=y");
-        assert_eq!(result.unwrap(), (String::from("x"), String::from("y")))
-    }
-
-    #[test]
-    fn parse_custom_data_when_empty_then_error(){
-        let result: Result<Vec<(String, String)>, Box<dyn Error+Send+Sync>> = parse_custom_data("");
-        assert!(result.is_err())
-    }
-
-    #[test]
-    fn parse_custom_data_when_single_key_value_then_key_value(){
-        let result: Result<Vec<(String, String)>, Box<dyn Error+Send+Sync>> = parse_custom_data("key1=value1");
-        assert_eq!(result.unwrap(), vec![(String::from("key1"), String::from("value1"))])
-    }
-
-    #[test]
-    fn parse_custom_data_when_multiple_key_value_then_key_value(){
-        let result: Result<Vec<(String, String)>, Box<dyn Error+Send+Sync>> = parse_custom_data("key1=value1,key2=value2");
-        assert_eq!(result.unwrap(), vec![(String::from("key1"), String::from("value1")), (String::from("key2"), String::from("value2"))])
-    }
 }
