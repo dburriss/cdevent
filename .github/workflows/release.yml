@@ -45,8 +45,5 @@ jobs:
         with:
           executable-name: cdevent
           target: ${{ matrix.platform.target }}
-          extra-files: |
-            './README.md'
-            './LICENSE'
           changes-file: 'CHANGELOG.md'
         if: matrix.toolchain == 'stable'
