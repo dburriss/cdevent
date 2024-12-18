@@ -16,7 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- TODO: Added `--headers` argument for sending custom headers in the request
+- Added `--headers` argument for sending custom headers in the request
+
+## Changed
+
+- Statically link OpenSSL in the binary so no external dependencies are needed
 
 ## [0.0.1] - 2024-11-11
 
